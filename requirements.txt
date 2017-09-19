@@ -1,0 +1,3 @@
+pyTelegramBotAPI
+vk_api
+datetime
