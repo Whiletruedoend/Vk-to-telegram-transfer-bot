@@ -5,7 +5,7 @@ import datetime
 import vk_api
 import telebot
 import requests
-from requests.auth import HTTPBasicAuth
+#from requests.auth import HTTPBasicAuth
 import threading
 
 config.initConfig()
@@ -142,7 +142,7 @@ def CheckRedirect_vk( msg ):
 
 	# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
 	if config.getCell( "vk_AddFriends" ) == 1:
-			checknewfriends()
+		checknewfriends()
 
 	userid = str( msg.get( 'user_id' ) )
 	chatid = str( msg.get( 'chat_id' ) )
