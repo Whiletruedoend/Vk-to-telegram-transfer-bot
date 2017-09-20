@@ -1,4 +1,4 @@
-#!/usr/bin/env
+#!/usr/bin/env python3.4
 import sys
 import config
 import datetime
@@ -39,67 +39,70 @@ def MsgHasAttachment( msg ):
 # Получаем аттачменты из сообщения ВК
 def getAttachments( msg ):
 
-	if msg['attachments'][0].get( 'photo' ): # Проверка на тип фотографии
-		Attachment = msg['attachments'][0]['photo']
-		# Различные типы фото
-		if Attachment.get( 'photo_2560' ):
-			attachments = Attachment.get( 'photo_2560' )
-		elif Attachment.get( 'photo_1280' ):
-			attachments = Attachment.get( 'photo_1280' )
-		elif Attachment.get( 'photo_604' ):
-			attachments = Attachment.get( 'photo_604' )
-		elif Attachment.get( 'photo_130' ):
-			attachments = Attachment.get( 'photo_130' )
-		elif Attachment.get( 'photo_75' ):
-			attachments = Attachment.get( 'photo_75' )
+	AttachList = []
 
-	elif msg['attachments'][0].get( 'doc' ): # Проверка на тип документа (гифки):
-		Attachment = msg['attachments'][0]['doc']
-		if Attachment.get( 'url' ):
-			attachments = Attachment.get( 'url' )
+	for att in msg['attachments'][0:]:
 
-	elif msg['attachments'][0].get( 'sticker' ): # Проверка на стикеры:
-		Attachment = msg['attachments'][0]['sticker']
-		# Можно 256 или 512, но будет слишком огромная пикча
-		if Attachment.get( 'photo_128' ):
-			attachments = Attachment.get( 'photo_128' )
+		AttType = att.get('type')
 
-	elif msg['attachments'][0].get( 'audio' ):
-		Attachment = msg['attachments'][0]['audio']
-		if Attachment.get( 'url' ):
-			attachments = Attachment.get( 'url' )
+		Attachment = att[AttType]
 
-	# Неизвестный тип?
-	else:
+		if AttType == 'photo': # Проверка на тип фотографии
 
-		attachments = None
+			# Различные типы фото
+			if Attachment.get( 'photo_2560' ):
+				attachments = Attachment.get( 'photo_2560' )
+			elif Attachment.get( 'photo_1280' ):
+				attachments = Attachment.get( 'photo_1280' )
+			elif Attachment.get( 'photo_604' ):
+				attachments = Attachment.get( 'photo_604' )
+			elif Attachment.get( 'photo_130' ):
+				attachments = Attachment.get( 'photo_130' )
+			elif Attachment.get( 'photo_75' ):
+				attachments = Attachment.get( 'photo_75' )
 
-	return attachments
+		elif AttType == 'doc': # Проверка на тип документа:
+		# Про типы документов можно узнать тут: https://vk.com/dev/objects/doc
+			DocType = Attachment.get('type')
+			if DocType != 3 and DocType != 4:
+				AttType = 'file'
+			if Attachment.get( 'url' ):
+				attachments = Attachment.get( 'url' )
 
-# Пришлось сделать отдельной ссылкой, чтобы отдельно крепилося к самому сообщению
-def getVideo( msg ):
+		elif AttType == 'sticker': # Проверка на стикеры:
+			# Можно 256 или 512, но будет слишком огромная пикча
+			if Attachment.get( 'photo_128' ):
+				attachments = Attachment.get( 'photo_128' )
 
-	if msg['attachments'][0].get( 'video' ):
+		elif AttType == 'audio':
+			if Attachment.get( 'url' ):
+				attachments = Attachment.get( 'url' )
 
-		OwnerId = str( msg['attachments'][0]['video'].get( 'owner_id' ) )
-		VideoId = str( msg['attachments'][0]['video'].get( 'id' ) )
-		Accesskey = str( msg['attachments'][0]['video'].get( 'access_key' ) )
+		elif AttType == 'video':
 
-		FullURL = str( OwnerId + '_' + VideoId + '_' + Accesskey)
+			OwnerId = str( Attachment.get( 'owner_id' ) )
+			VideoId = str( Attachment.get( 'id' ) )
+			Accesskey = str( Attachment.get( 'access_key' ) )
 
-		#	print( FullURL )
+			FullURL = str( OwnerId + '_' + VideoId + '_' + Accesskey)
 
-		video_att = module.vk.video.get(videos = FullURL )['items'][0].get('player')
+			attachments = module.vk.video.get(videos = FullURL )['items'][0].get('player')
 
-	else:
+		# Неизвестный тип?
+		else:
 
-		video_att = None
+			attachments = None
 
-	return video_att
+		AttachList.append( { 	'type':AttType,
+								'link':attachments } )
+
+	#print( AttachList )
+
+	return AttachList
 
 # Проверка на наличие перешлённых сообщений
 # P.S. Нужно добавить сложение текста в сообщении перед перешлённым сообщением и ID того, кто переслал текст....
-# Пока что не реализовал, быть может, позже...
+# Пока что ума не приложу, как это сделать....
 def CheckFwdMessages( msg ):
 	if not( msg.get( 'fwd_messages' ) ):
 		return False
@@ -122,8 +125,6 @@ def BaseChecks( msg ):
 
 	if( MsgHasAttachment( msg ) ):
 		attachments = getAttachments( msg )
-		if not getVideo( msg ) is None:
-			mbody = str( getVideo( msg ) ) + '\n\n' + mbody
 	else:
 		attachments = None
 
@@ -177,8 +178,6 @@ def CheckRedirect_vk( msg ):
 
 		if( MsgHasAttachment( msg ) ):
 			attachments = getAttachments( msg )
-			if not getVideo( msg ) is None:
-				mbody = str( getVideo( msg ) ) + '\n\n' + mbody
 		else:
 			attachments = None
 
@@ -223,14 +222,35 @@ def CheckRedirect_telegram( chatid, text, Attachment ):
 		return False
 
 def TransferMessageToTelegram( time, idd, firstname, lastname, mbody, attachments ):
+
 	NiceText = str( time + ' | ' + firstname + ' ' + lastname + ': ' + mbody )
+
 	if not attachments is None:
-		if len( attachments ) > 80: # Костыль, знаю
-			module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
-			module.bot.send_document( config.getCell( 'vk_' + idd ), attachments )
-		else:
-			module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
-			module.bot.send_photo( config.getCell( 'vk_' + idd ), attachments )
+
+		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
+
+		for j in attachments[0:]:
+
+			AttType = j.get('type')
+			Link = j.get('link')
+
+			if AttType == 'photo' or AttType == 'sticker':
+				module.bot.send_photo( config.getCell( 'vk_' + idd ), Link )
+
+			elif AttType == 'doc' or AttType == 'gif' or AttType == 'audio':
+				module.bot.send_document( config.getCell( 'vk_' + idd ), Link )
+
+			elif AttType == 'file':
+				module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+
+			elif AttType == 'video':
+
+				# Потому что в ВК нельзя нормальной ссылкой отправить видео как видео -_-
+				module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+
+			else:
+				print( 'Неизвестный тип аттачмента' )
+
 	else:
 		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
 
