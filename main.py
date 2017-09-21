@@ -64,7 +64,7 @@ def getAttachments( msg ):
 		elif AttType == 'doc': # Проверка на тип документа:
 		# Про типы документов можно узнать тут: https://vk.com/dev/objects/doc
 			DocType = Attachment.get('type')
-			if DocType != 3 and DocType != 4:
+			if DocType != 3 and DocType != 4 and DocType != 5:
 				AttType = 'file'
 			if Attachment.get( 'url' ):
 				attachments = Attachment.get( 'url' )
@@ -93,8 +93,8 @@ def getAttachments( msg ):
 
 			attachments = None
 
-		AttachList.append( { 	'type':AttType,
-								'link':attachments } )
+		AttachList.append( {'type':AttType,
+							'link':attachments } )
 
 	#print( AttachList )
 
