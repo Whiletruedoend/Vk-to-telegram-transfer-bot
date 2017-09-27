@@ -1,11 +1,11 @@
 #!/usr/bin/env python3.4
 import sys
-import time
 import config
 import datetime
 import vk_api
 import telebot
 import threading
+#import time
 #import requests
 #from requests.auth import HTTPBasicAuth
 
