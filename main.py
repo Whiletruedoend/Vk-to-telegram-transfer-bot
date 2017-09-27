@@ -291,6 +291,10 @@ def input_vk():
 			#Ставим онлайн боту, чому бы и нет?
 			module.vk.account.setOnline()
 
+			# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
+			if config.getCell( 'vk_AddFriends' ) == 1:
+				checknewfriends()
+
 			rawMessages = module.vk.messages.get(out = 0, count = config.getCell('vk_msgForPick') )
 
 			for msg in rawMessages['items']:
@@ -366,13 +370,6 @@ def checknewfriends():
 	if newfriends['count'] != 0:
 		module.vk.friends.add( user_id= newfriends['items'] ) # Добавляем человека в друзья
 
-def init_events():
-	while True:
-		time.sleep(5)
-		# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
-		if config.getCell( 'vk_AddFriends' ) == 1:
-			checknewfriends()
-
 
 #    ______ _             _      
 #   |  ____(_)           | |     
@@ -385,11 +382,8 @@ def init_events():
 
 t1 = threading.Thread( target=init_vk )
 t2 = threading.Thread( target=init_telegram )
-t3 = threading.Thread( target=init_events )
 
 t1.start()
 t2.start()
-t3.start()
 t1.join()
 t2.join()
-t3.join()
