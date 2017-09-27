@@ -1,16 +1,18 @@
 #!/usr/bin/env python3.4
 import sys
+import time
 import config
 import datetime
 import vk_api
 import telebot
-import requests
-#from requests.auth import HTTPBasicAuth
 import threading
+#import requests
+#from requests.auth import HTTPBasicAuth
 
 config.initConfig()
 
 module = sys.modules[__name__]
+
 
 #     _____                              _     _ _   
 #    / ____|                            | |   (_) |  
@@ -19,7 +21,7 @@ module = sys.modules[__name__]
 #    ____) | (_) | | | | | |  __/   \__ \ | | | | |_ 
 #   |_____/ \___/|_| |_| |_|\___|   |___/_| |_|_|\__|
 #                                                    
-#     
+#   Технические функции
 
 #Получаем текущее время
 def current_time():
@@ -102,7 +104,7 @@ def getAttachments( msg ):
 
 # Проверка на наличие перешлённых сообщений
 # P.S. Нужно добавить сложение текста в сообщении перед перешлённым сообщением и ID того, кто переслал текст....
-# Пока что ума не приложу, как это сделать....
+# Когда-нибудь обязательно переделаю архитектуру, но пока что пусть будет так
 def CheckFwdMessages( msg ):
 	if not( msg.get( 'fwd_messages' ) ):
 		return False
@@ -137,13 +139,9 @@ def BaseChecks( msg ):
 #   | | \ \  __/ (_| | | | |  __/ (__| |_\__ \
 #   |_|  \_\___|\__,_|_|_|  \___|\___|\__|___/
 #                                             
-#                                             
+#  Функции, принимающие и отправляющие сообщения ВК <==> Telegram
 
 def CheckRedirect_vk( msg ):
-
-	# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
-	if config.getCell( "vk_AddFriends" ) == 1:
-		checknewfriends()
 
 	userid = str( msg.get( 'user_id' ) )
 	chatid = str( msg.get( 'chat_id' ) )
@@ -151,8 +149,8 @@ def CheckRedirect_vk( msg ):
 	#print( str( config.getCell( 'vk_' + chatid) ) )
 
 	# Сделано на костылях, это я знаю
-	# Но переделывать мне было неохота))0))
-	# Плюс кроме меня этот код скорее всего всё равно никто читать не будет...
+	# Возможно, когда-нибудь я займусь оптимизацией кода....
+	# ( Когда-нибудь... )
 
 	if not config.getCell( 'vk_' + chatid) is None:
 
@@ -261,17 +259,11 @@ def TransferMessageToTelegram( time, idd, firstname, lastname, mbody, attachment
 #      \  /  |   < 
 #       \/   |_|\_\
 #                  
-#                  
+#
 
 def captcha_handler(captcha):
 	key = input( "Enter Captcha {0}: ".format( captcha.get_url() ) ).strip()
 	return captcha.try_again(key)
-
-#Проверка на заявки в друзья
-def checknewfriends():
-	newfriends = module.vk.friends.getRequests( out=0, count=1, need_viewed=1 ) # Смотрим, если ли заявки в друзья
-	if newfriends['count'] != 0:
-		module.vk.friends.add( user_id= newfriends['items'] ) # Добавляем человека в друзья
 
 def init_vk():
 
@@ -313,7 +305,7 @@ def input_vk():
 		# Чтобы не вылетало, а работало дальше
 		except BaseException:
 		#	print( 'Что-то пошло не так...' )
-			None
+			continue
 
 
 #    _______   _                                
@@ -331,6 +323,7 @@ def listener( messages ):
 
 		if m.content_type == 'text':
 
+			# На команду 'Дай ID' кидает ID чата
 			if m.text == 'Дай ID':
 				module.bot.send_message( m.chat.id, str( m.chat.id ) )
 				continue
@@ -358,6 +351,29 @@ def input_telegram():
 	module.bot.polling( none_stop=False )
 
 
+#    ______               _       
+#   |  ____|             | |      
+#   | |____   _____ _ __ | |_ ___ 
+#   |  __\ \ / / _ \ '_ \| __/ __|
+#   | |___\ V /  __/ | | | |_\__ \
+#   |______\_/ \___|_| |_|\__|___/
+#
+# Проверка на различные события
+
+#Проверка на заявки в друзья
+def checknewfriends():
+	newfriends = module.vk.friends.getRequests( out=0, count=1, need_viewed=1 ) # Смотрим, если ли заявки в друзья
+	if newfriends['count'] != 0:
+		module.vk.friends.add( user_id= newfriends['items'] ) # Добавляем человека в друзья
+
+def init_events():
+	while True:
+		time.sleep(5)
+		# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
+		if config.getCell( 'vk_AddFriends' ) == 1:
+			checknewfriends()
+
+
 #    ______ _             _      
 #   |  ____(_)           | |     
 #   | |__   _ _ __   __ _| | ___ 
@@ -369,8 +385,11 @@ def input_telegram():
 
 t1 = threading.Thread( target=init_vk )
 t2 = threading.Thread( target=init_telegram )
+t3 = threading.Thread( target=init_events )
 
 t1.start()
 t2.start()
+t3.start()
 t1.join()
 t2.join()
+t3.join()
