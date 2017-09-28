@@ -45,7 +45,7 @@ def getAttachments( msg ):
 
 	for att in msg['attachments'][0:]:
 
-		AttType = att.get('type')
+		AttType = att.get( 'type' )
 
 		Attachment = att[AttType]
 
@@ -65,7 +65,7 @@ def getAttachments( msg ):
 
 		elif AttType == 'doc': # Проверка на тип документа:
 		# Про типы документов можно узнать тут: https://vk.com/dev/objects/doc
-			DocType = Attachment.get('type')
+			DocType = Attachment.get( 'type' )
 			if DocType != 3 and DocType != 4 and DocType != 5:
 				AttType = 'file'
 			if Attachment.get( 'url' ):
@@ -103,34 +103,26 @@ def getAttachments( msg ):
 	return AttachList
 
 # Проверка на наличие перешлённых сообщений
-# P.S. Нужно добавить сложение текста в сообщении перед перешлённым сообщением и ID того, кто переслал текст....
-# Когда-нибудь обязательно переделаю архитектуру, но пока что пусть будет так
-def CheckFwdMessages( msg ):
+def GetFwdMessages( msg ):
 	if not( msg.get( 'fwd_messages' ) ):
-		return False
+		return None # И так сойдёт
 
-	# Рекурсивное извлечение данных из перешлённого сообщения
-	FwdMsg = BaseChecks( msg.get( 'fwd_messages' )[0] )
+	FwdList = []
 
-	return '\n\n | ' + FwdMsg[0], FwdMsg[1]
+	FwdMsg = msg.get( 'fwd_messages' )
 
-# Основная проверка на наличие различных плюшек в сообщении
-def BaseChecks( msg ):
+	while not FwdMsg is None:
 
-	mbody = msg.get( 'body' )
+		dataname = module.vk.users.get( user_ids = FwdMsg[0].get('user_id' ) )
+		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
 
-	# Проверка на наличие пересланных сообщений
-	FwdMessages = CheckFwdMessages( msg )
+		FwdList.append( { 'body':FwdMsg[0].get( 'body' ), 'UserName':UserName } )
 
-	if FwdMessages:
-		return FwdMessages[0], FwdMessages[1]
+		FwdMsg = FwdMsg[0].get( 'fwd_messages' )
 
-	if( MsgHasAttachment( msg ) ):
-		attachments = getAttachments( msg )
-	else:
-		attachments = None
+	#print( FwdList )
 
-	return mbody, attachments
+	return FwdList
 
 #    _____          _ _               _       
 #   |  __ \        | (_)             | |      
@@ -152,38 +144,35 @@ def CheckRedirect_vk( msg ):
 	# Возможно, когда-нибудь я займусь оптимизацией кода....
 	# ( Когда-нибудь... )
 
-	if not config.getCell( 'vk_' + chatid) is None:
+	if not config.getCell( 'vk_' + chatid ) is None:
 
 		time = current_time()
 		dataname = module.vk.users.get( user_ids = userid )
-		firstname = dataname[0]['first_name']
-		lastname = dataname[0]['last_name']
-
-		# Проверка на аттачменты, пересланные сообщения, видео...
-		OtherThings = BaseChecks( msg )
-
-		TransferMessageToTelegram( time, chatid, firstname, lastname, OtherThings[0], OtherThings[1] )
-
-		return False
-
-	elif not config.getCell( 'vk_' + userid) is None:
-
-		time = current_time()
-		dataname = module.vk.users.get( user_ids = userid )
-		firstname = dataname[0]['first_name']
-		lastname = dataname[0]['last_name']
+		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
 		mbody = msg.get( 'body' )
 
-		if( MsgHasAttachment( msg ) ):
-			attachments = getAttachments( msg )
-		else:
-			attachments = None
+		TransferMessagesToTelegram( time, chatid, UserName, mbody, GetFwdMessages( msg ) )
 
-		TransferMessageToTelegram( time, userid, firstname, lastname, mbody, attachments )
+		# Проверка на аттачменты, пересланные сообщения, видео...
+		if( MsgHasAttachment( msg ) ):
+			TransferAttachmentsToTelegram( chatid, getAttachments( msg ) )
 
 		return False
 
-	return True
+	elif not config.getCell( 'vk_' + userid ) is None:
+
+		time = current_time()
+		dataname = module.vk.users.get( user_ids = userid )
+		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		mbody = msg.get( 'body' )
+
+		TransferMessagesToTelegram( time, userid, UserName, mbody, GetFwdMessages( msg ) )
+
+		# Проверка на аттачменты, пересланные сообщения, видео...
+		if( MsgHasAttachment( msg ) ):
+			TransferAttachmentsToTelegram( userid, getAttachments( msg ) )
+
+		return False
 
 def TransferMessageToVK( chatid, text, Attachment ):
 	if Attachment is None:
@@ -219,38 +208,49 @@ def CheckRedirect_telegram( chatid, text, Attachment ):
 		TransferMessageToVK( chatid, text, Attachment )
 		return False
 
-def TransferMessageToTelegram( time, idd, firstname, lastname, mbody, attachments ):
+# Посылаем простые сообщения в Telegram
+# Идея: сделать в будущем наклонные столбики, теперь главное не забыть
+# Доп.: необходимо сделать обработку аттачментов в перешлённых сообщениях
+def TransferMessagesToTelegram( time, idd, UserName, mbody, FwdList ):
 
-	NiceText = str( time + ' | ' + firstname + ' ' + lastname + ': ' + mbody )
+	NiceText = str( time + ' | ' + UserName + ': ' + mbody )
 
-	if not attachments is None:
+	if not FwdList is None:
 
-		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
+		ForwardText = ''
 
-		for j in attachments[0:]:
+		for f in FwdList[0:]:
+			ForwardText = ForwardText + str( ' | ' + f.get( 'UserName' ) + ':' + ' ' + f.get( 'body' ) + ' \n\n' )
 
-			AttType = j.get('type')
-			Link = j.get('link')
-
-			if AttType == 'photo' or AttType == 'sticker':
-				module.bot.send_photo( config.getCell( 'vk_' + idd ), Link )
-
-			elif AttType == 'doc' or AttType == 'gif' or AttType == 'audio':
-				module.bot.send_document( config.getCell( 'vk_' + idd ), Link )
-
-			elif AttType == 'file':
-				module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
-
-			elif AttType == 'video':
-
-				# Потому что в ВК нельзя нормальной ссылкой отправить видео как видео -_-
-				module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
-
-			else:
-				print( 'Неизвестный тип аттачмента' )
+		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText + '\n\n' + ForwardText )
 
 	else:
 		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
+
+# Посылаем аттачменты в Telegram
+def TransferAttachmentsToTelegram ( idd, attachments ):
+
+	for j in attachments[0:]:
+
+		AttType = j.get( 'type' )
+		Link = j.get( 'link' )
+
+		if AttType == 'photo' or AttType == 'sticker':
+			module.bot.send_photo( config.getCell( 'vk_' + idd ), Link )
+
+		elif AttType == 'doc' or AttType == 'gif' or AttType == 'audio':
+			module.bot.send_document( config.getCell( 'vk_' + idd ), Link )
+
+		elif AttType == 'file':
+			module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+
+		elif AttType == 'video':
+
+			# Потому что в ВК не может отправить полную ссылку на файл видео -_-
+			module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+
+		else:
+			module.bot.send_message( config.getCell( 'vk_' + idd ), '( Неизвестный тип аттачмента )' )
 
 #   __      ___    
 #   \ \    / / |   
