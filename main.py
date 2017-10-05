@@ -23,7 +23,7 @@ module = sys.modules[__name__]
 #                                                    
 #   Технические функции
 
-#Получаем текущее время
+# Получаем текущее время
 def current_time():
 	delta = datetime.timedelta( hours=3 )
 	utc = datetime.timezone.utc
@@ -32,10 +32,17 @@ def current_time():
 	timestr = time.strftime(fmt)
 	return timestr
 
+# Получение имени пользователя
+def GetUserName( msg ):
+	dataname = module.vk.users.get( user_ids = msg.get('user_id' ) )
+	UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+	return UserName
+
 # Проверка на наличие аттачментов в сообщении
-def MsgHasAttachment( msg ):
+def CheckAttachments( msg, idd ):
 	if not( msg.get( 'attachments' ) ):
 		return False
+	TransferAttachmentsToTelegram( idd, getAttachments( msg ) )
 	return True
 
 # Получаем аттачменты из сообщения ВК
@@ -102,8 +109,53 @@ def getAttachments( msg ):
 
 	return AttachList
 
+# Проверка чата ВК на различные события
+def CheckEvents( msg, chatid ):
+
+	if not( msg.get( 'action' ) ):
+		return None # И так сойдёт
+
+	Event = msg.get( 'action' )
+	UserName = GetUserName( msg )
+	time = current_time()
+
+	# Ниже проверям наш чат на различные события
+	# См. https://vk.com/dev/objects/message
+
+	if Event == 'chat_title_update':
+		Object = str( msg.get( 'action_text' ) )
+		mbody = " *** " + UserName + " изменил(а) название беседы на " + Object + " ***"
+		TransferMessagesToTelegram( time, chatid, None, mbody, None )
+
+	elif Event == 'chat_invite_user':
+		dataname = module.vk.users.get( user_ids = msg.get( 'action_mid' ) )
+		Object = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		mbody = " *** " + UserName + " пригласил(а) в беседу " + Object + " ***"
+		TransferMessagesToTelegram( time, chatid, None, mbody, None )
+
+	elif Event == 'chat_kick_user':
+		dataname = module.vk.users.get( user_ids = msg.get( 'action_mid' ) )
+		Object = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		mbody = " *** " + UserName + " кикнул(а) из беседы " + Object + " ***"
+		TransferMessagesToTelegram( time, chatid, None, mbody, None )
+
+	elif Event == 'chat_photo_update':
+		Object = str( msg.get( 'photo_200' ) )
+		mbody = " *** " + UserName + " обновил(а) фото беседы: ***"
+		TransferMessagesToTelegram( time, chatid, None, mbody, None )
+
+	elif Event == 'chat_photo_remove':
+		mbody = " *** " + UserName + " удалил(а) фото беседы! ***"
+		TransferMessagesToTelegram( time, chatid, None, mbody, None )
+
+	elif Event == 'chat_create':
+		print( 'Беседа была создана!' )
+
+	return True
+
 # Проверка на наличие перешлённых сообщений
-def GetFwdMessages( msg ):
+def GetFwdMessages( msg, idd ):
+
 	if not( msg.get( 'fwd_messages' ) ):
 		return None # И так сойдёт
 
@@ -113,10 +165,11 @@ def GetFwdMessages( msg ):
 
 	while not FwdMsg is None:
 
-		dataname = module.vk.users.get( user_ids = FwdMsg[0].get('user_id' ) )
-		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		UserName = GetUserName( FwdMsg[0] )
 
 		FwdList.append( { 'body':FwdMsg[0].get( 'body' ), 'UserName':UserName } )
+
+		CheckAttachments( FwdMsg[0], idd )
 
 		FwdMsg = FwdMsg[0].get( 'fwd_messages' )
 
@@ -146,31 +199,36 @@ def CheckRedirect_vk( msg ):
 
 	if not config.getCell( 'vk_' + chatid ) is None:
 
+		ForwardMessage = GetFwdMessages( msg, chatid )
+
 		time = current_time()
-		dataname = module.vk.users.get( user_ids = userid )
-		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		UserName = GetUserName( msg )
 		mbody = msg.get( 'body' )
 
-		TransferMessagesToTelegram( time, chatid, UserName, mbody, GetFwdMessages( msg ) )
+		# Чтобы при событии не посылалось пустое сообщение
+		if CheckEvents( msg, chatid ) is None:
+			TransferMessagesToTelegram( time, chatid, UserName, mbody, ForwardMessage )
 
 		# Проверка на аттачменты, пересланные сообщения, видео...
-		if( MsgHasAttachment( msg ) ):
-			TransferAttachmentsToTelegram( chatid, getAttachments( msg ) )
+		if ForwardMessage is None:
+			CheckAttachments( msg, chatid )
 
 		return False
 
 	elif not config.getCell( 'vk_' + userid ) is None:
 
+		ForwardMessage = GetFwdMessages( msg, userid )
+
 		time = current_time()
-		dataname = module.vk.users.get( user_ids = userid )
-		UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		UserName = GetUserName( msg )
 		mbody = msg.get( 'body' )
 
-		TransferMessagesToTelegram( time, userid, UserName, mbody, GetFwdMessages( msg ) )
+		TransferMessagesToTelegram( time, userid, UserName, mbody, ForwardMessage )
 
 		# Проверка на аттачменты, пересланные сообщения, видео...
-		if( MsgHasAttachment( msg ) ):
-			TransferAttachmentsToTelegram( userid, getAttachments( msg ) )
+		# Проверка сделана, чтобы исключить повтор картинки
+		if ForwardMessage is None:
+			CheckAttachments( msg, userid )
 
 		return False
 
@@ -210,8 +268,12 @@ def CheckRedirect_telegram( chatid, text, Attachment ):
 
 # Посылаем простые сообщения в Telegram
 # Идея: сделать в будущем наклонные столбики, теперь главное не забыть
-# Доп.: необходимо сделать обработку аттачментов в перешлённых сообщениях
 def TransferMessagesToTelegram( time, idd, UserName, mbody, FwdList ):
+
+	# Условие выполняется в случае какого-либо события
+	if UserName is None:
+		module.bot.send_message( config.getCell( 'vk_' + idd ), str( mbody ) )
+		return False
 
 	NiceText = str( time + ' | ' + UserName + ': ' + mbody )
 
@@ -291,7 +353,7 @@ def input_vk():
 			#Ставим онлайн боту, чому бы и нет?
 			module.vk.account.setOnline()
 
-			# Воткнул сюда проверку на наличие подписчиков, чтобы не спаммить функцией в цикле...
+			# Проверка на наличие подписчиков
 			if config.getCell( 'vk_AddFriends' ) == 1:
 				checknewfriends()
 
