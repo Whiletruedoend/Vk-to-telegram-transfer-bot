@@ -1,18 +1,20 @@
 #!/usr/bin/env python3.4
+import os
 import sys
 import config
+import db
 import datetime
 import vk_api
 import telebot
 import threading
-#import time
-#import requests
-#from requests.auth import HTTPBasicAuth
+import httplib2 # Не работает на бесплатном аккаунте pythonanywhere
+from PIL import Image # Для преобразования изображений из webp в PNG
 
 config.initConfig()
 
 module = sys.modules[__name__]
 
+# Код настоятельно рекомендуется читать снизу вверх!
 
 #     _____                              _     _ _   
 #    / ____|                            | |   (_) |  
@@ -188,6 +190,8 @@ def GetFwdMessages( msg, idd ):
 
 def CheckRedirect_vk( msg ):
 
+	#print( msg )
+
 	userid = str( msg.get( 'user_id' ) )
 	chatid = str( msg.get( 'chat_id' ) )
 
@@ -233,31 +237,31 @@ def CheckRedirect_vk( msg ):
 		return False
 
 def TransferMessageToVK( chatid, text, Attachment ):
+
 	if Attachment is None:
+
 		try:
 			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = text )
 		except vk_api.ApiError as error_msg:
 			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = text )
 		#print( 'Сообщение успешно отправлено! ( ' + text + ' )' )
+
 	else:
-		None
 
-		# Я пытался... потом доделаю)
+		GetSticker = db.CheckSticker( Attachment )
 
-		#print( Attachment )
-		#Lel = 'https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), Attachment )
-		#Req = requests.get('https://ezgif.com/webp-to-png?url=https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), Attachment ) )
-		#endpoint = "https://sandbox.zamzar.com/v1/jobs"
-		#source_file = "https://api.telegram.org/file/bot{0}/{1}".format( config.getCell( 'telegram_token' ), Attachment )
-		#target_format = "jpg"
-		# http://www.zamzar.com/convert/webp-to-jpg/
-		# https://developers.zamzar.com/docs#section-Starting_a_new_job_for_a_URL
-		# https://api.zamzar.com/v1/
+		# Если стикер не найден в БД
+		if GetSticker is None:
+			StickerURL = 'https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), Attachment )
+			SaveSticker( StickerURL, Attachment )
+			GetSticker = db.CheckSticker( Attachment )
 
-		#data_content = {'source_file': source_file, 'target_format': target_format}
-		#res = requests.post(endpoint, data=data_content, auth=HTTPBasicAuth(config.getCell( 'api_key' ), ''))
+		#print( GetSticker )
 
-		#print( res.json() )
+		try:
+			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker )
+		except vk_api.ApiError as error_msg:
+			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker )
 
 	return False
 
@@ -334,6 +338,8 @@ def init_vk():
 
 	print( "login in vk as: " + login )
 
+	global vk_session
+
 	vk_session = vk_api.VkApi( login, password, captcha_handler=captcha_handler )
 
 	try:
@@ -396,14 +402,15 @@ def listener( messages ):
 
 			CheckRedirect_telegram( str( m.chat.id ), str( m.text ), None )
 
-		# Ещё недопилено
 		elif m.content_type == 'sticker':
 
+			if config.getCell( 'vk_EnableStickers' ) != 1:
+				return False
+
+			# Убираем ненужный на конце формат 'webp'
 			FilePath = module.bot.get_file( m.sticker.file_id ).file_path
 
 			CheckRedirect_telegram( str( m.chat.id ), str( m.text ), str( FilePath ) )
-
-		#	print( 'https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), FilePath ) )
 
 
 def init_telegram():
@@ -415,7 +422,6 @@ def init_telegram():
 def input_telegram():
 	module.bot.set_update_listener( listener )
 	module.bot.polling( none_stop=False )
-
 
 #    ______               _       
 #   |  ____|             | |      
@@ -432,6 +438,69 @@ def checknewfriends():
 	if newfriends['count'] != 0:
 		module.vk.friends.add( user_id= newfriends['items'] ) # Добавляем человека в друзья
 
+#     _____ _   _      _                 
+#    / ____| | (_)    | |                
+#   | (___ | |_ _  ___| | _____ _ __ ___ 
+#    \___ \| __| |/ __| |/ / _ \ '__/ __|
+#    ____) | |_| | (__|   <  __/ |  \__ \
+#   |_____/ \__|_|\___|_|\_\___|_|  |___/
+#                                        
+#                                        
+
+# Загрузка стикеров в ВК
+def AddStickerIntoVK( path, Sticker ):
+
+	StickerList = []
+	OurFile = path + Sticker
+
+	upload = vk_api.VkUpload( vk_session )
+	photo = upload.photo( OurFile + ".png", album_id = config.getCell( 'vk_album_id' ) )
+
+	if config.getCell( 'vk_detelestickers' ) == 1:
+		os.remove( OurFile + ".png" )
+
+	OurVK = 'photo{}_{}'.format( photo[0]['owner_id'], photo[0]['id'] )
+
+	StickerList.append( { 'sticker_t':OurFile,
+						  'sticker_vk':OurVK } )
+
+	return StickerList
+
+def SaveSticker( StickerURL, Attachment ):
+
+	Attachment = Attachment.split('/')
+
+	h = httplib2.Http( '.cache' )
+	response, content = h.request( StickerURL )
+
+	path = Attachment[0] + '/'
+	if not os.path.exists( path ):
+		os.makedirs( path )
+
+	# Перекодирование из webp в png
+
+	ImageWebp = path + Attachment[1]
+
+	out = open( ImageWebp, 'wb' )
+	out.write( content )
+	out.close()
+
+	img = Image.open(ImageWebp)
+
+	if config.getCell( 'vk_sticker_EnableScale' ) == 1:
+		scale = config.getCell( 'vk_sticker_size' )
+		img.thumbnail((scale, scale))
+	img.save( ImageWebp + ".png", "PNG")
+	os.remove( ImageWebp )
+
+	#print( 'Sticker saved!' )
+
+	Stickers = AddStickerIntoVK( path, Attachment[1] )
+	db.AddStickerIntoDb( Stickers )
+
+# Разработчикам на заметку:
+# Telegram та ещё поехавшая вещь, иногда аттачменты идут с расширением файла, иногда - без него
+# Из-за этого я долго не мог понять, почему одни стикеры отправляются нормально, а другие - выдают ошибку при отправке
 
 #    ______ _             _      
 #   |  ____(_)           | |     
