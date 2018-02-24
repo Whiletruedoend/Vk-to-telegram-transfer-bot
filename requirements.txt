@@ -1,5 +1,4 @@
 pyTelegramBotAPI
 vk_api
 datetime
-httplib2
 Pillow

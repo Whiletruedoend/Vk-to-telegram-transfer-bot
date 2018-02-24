@@ -7,7 +7,7 @@ import datetime
 import vk_api
 import telebot
 import threading
-import httplib2 # Не работает на бесплатном аккаунте pythonanywhere
+import urllib.request as ur
 from PIL import Image # Для преобразования изображений из webp в PNG
 
 config.initConfig()
@@ -16,13 +16,13 @@ module = sys.modules[__name__]
 
 # Код настоятельно рекомендуется читать снизу вверх!
 
-#     _____                              _     _ _   
-#    / ____|                            | |   (_) |  
-#   | (___   ___  _ __ ___   ___     ___| |__  _| |_ 
-#    \___ \ / _ \| '_ ` _ \ / _ \   / __| '_ \| | __|
-#    ____) | (_) | | | | | |  __/   \__ \ | | | | |_ 
-#   |_____/ \___/|_| |_| |_|\___|   |___/_| |_|_|\__|
-#                                                    
+#    _______        _     
+#   |__   __|      | |    
+#      | | ___  ___| |__  
+#      | |/ _ \/ __| '_ \ 
+#      | |  __/ (__| | | |
+#      |_|\___|\___|_| |_|
+#                         
 #   Технические функции
 
 # Получаем текущее время
@@ -420,8 +420,12 @@ def init_telegram():
 	input_telegram()
 
 def input_telegram():
-	module.bot.set_update_listener( listener )
-	module.bot.polling( none_stop=False )
+	module.bot.set_update_listener(listener)
+	while True: # Костыль на случай timeout'a
+		try:
+			module.bot.polling(none_stop=False)
+		except:
+			continue
 
 #    ______               _       
 #   |  ____|             | |      
@@ -470,8 +474,7 @@ def SaveSticker( StickerURL, Attachment ):
 
 	Attachment = Attachment.split('/')
 
-	h = httplib2.Http( '.cache' )
-	response, content = h.request( StickerURL )
+	content = ur.urlopen( StickerURL ).read()
 
 	path = Attachment[0] + '/'
 	if not os.path.exists( path ):
