@@ -327,6 +327,16 @@ def TransferAttachmentsToTelegram ( idd, attachments ):
 #                  
 #
 
+# При двухфакторной аутентификации вызывается эта функция
+def auth_handler():
+
+	key = input("Enter authentication code: ")
+	# True - сохранить, False - не сохранять
+	remember_device = True
+
+	return key, remember_device
+
+# Каптча
 def captcha_handler(captcha):
 	key = input( "Enter Captcha {0}: ".format( captcha.get_url() ) ).strip()
 	return captcha.try_again(key)
@@ -340,7 +350,7 @@ def init_vk():
 
 	global vk_session
 
-	vk_session = vk_api.VkApi( login, password, captcha_handler=captcha_handler )
+	vk_session = vk_api.VkApi( login, password, auth_handler=auth_handler, captcha_handler=captcha_handler )
 
 	try:
 		vk_session.auth()
