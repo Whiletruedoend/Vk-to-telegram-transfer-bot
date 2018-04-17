@@ -430,6 +430,16 @@ def init_telegram():
 	input_telegram()
 
 def input_telegram():
+
+	if config.getCell('telegram_useProxy') == 1:
+		Proxy_type = str( config.getCell('p_type') )
+		Proxy_UserInfo = str( config.getCell('p_user') + ':' + config.getCell('p_password') )
+		Proxy_Data = str( config.getCell('p_host') + ':' + config.getCell('p_port') )
+		telebot.apihelper.proxy = { 
+		'http': '%s://%s@%s' % ( Proxy_type, Proxy_UserInfo, Proxy_Data ),
+		'https': '%s://%s@%s' % ( Proxy_type, Proxy_UserInfo, Proxy_Data )
+		}
+
 	module.bot.set_update_listener(listener)
 	while True: # Костыль на случай timeout'a
 		try:
