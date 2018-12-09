@@ -3,6 +3,7 @@ import os
 import sys
 import config
 import db
+import random
 import datetime
 import vk_api
 import telebot
@@ -220,12 +221,14 @@ def TransferMessageToVK( chatid, text, fromUser, Attachment ):
 		time = current_time()
 		text = str( time + ' | ' + fromUser + ': ' + text )
 
+	randid = random.randint(-9223372036854775808, +9223372036854775807) #int64
+
 	if Attachment is None:
 
 		try:
-			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = text )
+			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = text, random_id=randid )
 		except vk_api.ApiError as error_msg:
-			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = text )
+			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = text, random_id=randid )
 		#print( 'Сообщение успешно отправлено! ( ' + text + ' )' )
 
 	else:
@@ -241,9 +244,9 @@ def TransferMessageToVK( chatid, text, fromUser, Attachment ):
 		#print( GetSticker )
 
 		try:
-			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker )
+			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker, random_id=randid )
 		except vk_api.ApiError as error_msg:
-			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker )
+			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker, random_id=randid )
 
 	return False
 
