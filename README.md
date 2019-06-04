@@ -25,6 +25,7 @@
 
 ```sh
 git clone https://github.com/Whiletruedoend/Vk-to-telegram-transfer-bot
+cd Vk-to-telegram-transfer-bot
 pip3 install -r requirements.txt
 или же (если вдруг не сработало):
 python -m pip install -r requirements.txt
