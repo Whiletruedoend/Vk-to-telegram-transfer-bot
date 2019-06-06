@@ -79,7 +79,7 @@ P.S. Я дальнейшем я планирую облегчить систем
 ### Обратная связь
 Если у вас есть какие-то идеи или собственные наработки, или же просто вопросы по поводу работоспособности кода, то вы всегда можете обратиться ко мне по следующим адресам:
 - [Telegram](https://t.me/Whiletruedoend)
-- [Jabber](xmpp:whiletruedoend@cirnochat.ml?message;subject=Test%20Message;body=Hello!)
+- Jabber: whiletruedoend@cirnochat.ml
 
 ### Скриншоты
 
