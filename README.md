@@ -25,6 +25,7 @@
 
 ```sh
 git clone https://github.com/Whiletruedoend/Vk-to-telegram-transfer-bot
+cd Vk-to-telegram-transfer-bot
 pip3 install -r requirements.txt
 или же (если вдруг не сработало):
 python -m pip install -r requirements.txt
@@ -78,7 +79,7 @@ P.S. Я дальнейшем я планирую облегчить систем
 ### Обратная связь
 Если у вас есть какие-то идеи или собственные наработки, или же просто вопросы по поводу работоспособности кода, то вы всегда можете обратиться ко мне по следующим адресам:
 - [Telegram](https://t.me/Whiletruedoend)
-- [Discord](https://discord.gg/aQ97ndF)
+- [Jabber](https://whiletruedoend@cirnochat.ml)
 
 ### Скриншоты
 

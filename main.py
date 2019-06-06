@@ -331,12 +331,13 @@ def init_vk():
 
 	login = config.getCell( 'vk_login' )
 	password = config.getCell( 'vk_password' )
+	app = config.getCell( 'app_id' )
 
 	print( "login in vk as: " + login )
 
 	global vk_session
 
-	vk_session = vk_api.VkApi( login, password, auth_handler=auth_handler, captcha_handler=captcha_handler )
+	vk_session = vk_api.VkApi( login, password, app_id=app, auth_handler=auth_handler, captcha_handler=captcha_handler )
 
 	try:
 		vk_session.auth()
