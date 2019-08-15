@@ -1,20 +1,20 @@
-#!/usr/bin/env python3.4
+# -*- coding: utf-8 -*-
 import sqlite3 # Стандартная либа насколько я помню
 import os
 
 # Если стикеры не найдены, то добавляем их в бд
-def AddStickerIntoDb( Stickers ):
+def addStickerIntoDb( stickers ):
 
 	conn = sqlite3.connect('bot.db')
 	c = conn.cursor()
 
-	c.execute("INSERT INTO stickers VALUES ( '" + Stickers[0].get('sticker_t') + "' , '" + Stickers[0].get('sticker_vk') + "')")
+	c.execute("INSERT INTO stickers VALUES ( '" + stickers[0].get('sticker_t') + "' , '" + stickers[0].get('sticker_vk') + "')")
 
 	conn.commit()
 	conn.close()
 
 # Создаём новую базу данных
-def CreateDb():
+def createDb():
 
 	conn = sqlite3.connect('bot.db')
 	c = conn.cursor()
@@ -26,11 +26,11 @@ def CreateDb():
 	conn.close()
 
 # Проверяем стикер на наличие в БД
-def CheckSticker( Attachment ):
+def checkSticker( attachment ):
 
 	if not os.path.isfile( './bot.db' ):
 		print( 'База данных не найдена, создаём новую...' )
-		CreateDb()
+		createDb()
 
 	conn = sqlite3.connect('bot.db')
 	c = conn.cursor()
@@ -45,7 +45,7 @@ def CheckSticker( Attachment ):
 
 		telegram, vk = rec
 
-		if str( telegram ) == str( Attachment ):
+		if str( telegram ) == str( attachment ):
 			#print( 'Стикер найден!' )
 			return vk
 

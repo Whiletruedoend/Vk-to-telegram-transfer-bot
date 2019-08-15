@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 
 module = sys.modules[__name__]

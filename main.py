@@ -1,4 +1,5 @@
-#!/usr/bin/env python3.4
+#!/usr/lib/python3 python
+# -*- coding: utf-8 -*-
 import os
 import sys
 import config
@@ -36,152 +37,165 @@ def current_time():
 	return timestr
 
 # Получение имени пользователя
-def GetUserName( msg ):
+def getUserName( msg ):
 	dataname = module.vk.users.get( user_ids = msg.get('from_id') )
-	UserName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
-	return UserName
+	userName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+	return userName
 
-def GetUserTName( msg ):
+def getUserTName( msg ):
 	if msg.last_name is None:
-		UserName = str( msg.first_name )
+		userName = str( msg.first_name )
 	else:
-		UserName = str( msg.first_name + " " + msg.last_name )
-	return UserName
+		userName = str( msg.first_name + " " + msg.last_name )
+	return userName
 
 # Проверка на наличие аттачментов в сообщении
-def CheckAttachments( msg, idd ):
+def checkAttachments( msg, idd ):
 	if not( msg.get( 'attachments' ) ):
 		return False
-	TransferAttachmentsToTelegram( idd, getAttachments( msg ) )
+	transferAttachmentsToTelegram( idd, getAttachments( msg ) )
 	return True
 
 # Получаем аттачменты из сообщения ВК
 def getAttachments( msg ):
 
-	AttachList = []
+	attachList = []
 
 	for att in msg['attachments'][0:]:
 
-		AttType = att.get( 'type' )
+		attType = att.get( 'type' )
 
-		Attachment = att[AttType]
+		attachment = att[attType]
 
-		if AttType == 'photo': # Проверка на тип фотографии
+		if attType == 'photo': # Проверка на тип фотографии
 
-			# Различные типы фото
-			if Attachment.get( 'photo_2560' ):
-				attachments = Attachment.get( 'photo_2560' )
-			elif Attachment.get( 'photo_1280' ):
-				attachments = Attachment.get( 'photo_1280' )
-			elif Attachment.get( 'photo_604' ):
-				attachments = Attachment.get( 'photo_604' )
-			elif Attachment.get( 'photo_130' ):
-				attachments = Attachment.get( 'photo_130' )
-			elif Attachment.get( 'photo_75' ):
-				attachments = Attachment.get( 'photo_75' )
+			for photoType in attachment.get('sizes')[0:]:
+				if photoType.get('type') == 'x': # <=604x604
+					attachments = photoType.get('url')
+				if photoType.get('type') == 'y': # >605x605
+					attachments = photoType.get('url')
+				if photoType.get('type') == 'z': # <=1280x720
+					attachments = photoType.get('url')
+				if photoType.get('type') == 'w':# >1280x720
+					attachments = photoType.get('url') # <=2560x1440
+					attType = 'other'
 
-		elif AttType == 'doc': # Проверка на тип документа:
+		elif attType == 'doc': # Проверка на тип документа:
 		# Про типы документов можно узнать тут: https://vk.com/dev/objects/doc
-			DocType = Attachment.get( 'type' )
-			if DocType != 3 and DocType != 4 and DocType != 5:
-				AttType = 'file'
-			if Attachment.get( 'url' ):
-				attachments = Attachment.get( 'url' )
+			docType = attachment.get( 'type' )
+			if docType != 3 and docType != 4 and docType != 5:
+				attType = 'other'
+			if attachment.get( 'url' ):
+				attachments = attachment.get( 'url' )
 
-		elif AttType == 'sticker': # Проверка на стикеры:
-			# Можно 256 или 512, но будет слишком огромная пикча
-			if Attachment.get( 'photo_128' ):
-				attachments = Attachment.get( 'photo_128' )
+		elif attType == 'sticker': # Проверка на стикеры:
+			for sticker in attachment.get( 'images' )[0:]:
+				# Можно 256 или 512, но будет слишком огромная пикча
+				if sticker.get('width') == 128:
+					attachments = sticker.get( 'url' )
 
-		elif AttType == 'audio':
-			if Attachment.get( 'url' ):
-				attachments = Attachment.get( 'url' )
+		elif attType == 'audio':
+			attachments = str ( '𝅘𝅥𝅮 ' + attachment.get('artist') + ' - ' + 
+				attachment.get('title') + ' 𝅘𝅥𝅮' )
+			attType = 'other'
 
-		elif AttType == 'video':
+		elif attType == 'audio_message':
+			attachments = attachment.get('link_ogg')
 
-			OwnerId = str( Attachment.get( 'owner_id' ) )
-			VideoId = str( Attachment.get( 'id' ) )
-			Accesskey = str( Attachment.get( 'access_key' ) )
+		elif attType == 'video':
 
-			FullURL = str( OwnerId + '_' + VideoId + '_' + Accesskey)
+			ownerId = str( attachment.get( 'owner_id' ) )
+			videoId = str( attachment.get( 'id' ) )
+			accesskey = str( attachment.get( 'access_key' ) )
 
-			attachments = module.vk.video.get(videos = FullURL )['items'][0].get('player')
+			fullURL = str( ownerId + '_' + videoId + '_' + accesskey)
+
+			attachments = module.vk.video.get(videos = fullURL )['items'][0].get('player')
 
 		# Неизвестный тип?
 		else:
 
 			attachments = None
 
-		AttachList.append( { 	'type':AttType,
+		attachList.append( { 	'type':attType,
 								'link':attachments } )
 
-	#print( AttachList )
+	#print( attachList )
 
-	return AttachList
+	return attachList
 
 # Проверка чата ВК на различные события
-def CheckEvents( msg, chatid ):
+def checkEvents( msg, chatid ):
 
 	if not ( msg['last_message'].get( 'action' ) ):
 		return None # И так сойдёт
 
-	Event = msg['last_message']['action'].get( 'type' )
-	UserName = GetUserName( msg['last_message'] )
+	event = msg['last_message']['action'].get( 'type' )
+	userName = getUserName( msg['last_message'] )
 
 	# Ниже проверям наш чат на различные события
 	# См. https://vk.com/dev/objects/message
 
-	if Event == 'chat_title_update':
-		Object = str( msg['last_message']['action'].get( 'text' ) )
-		mbody = " *** " + UserName + " изменил(а) название беседы на " + Object + " ***"
+	if event == 'chat_title_update':
+		eObject = str( msg['last_message']['action'].get( 'text' ) )
+		mbody = " *** " + userName + " изменил(а) название беседы на " + eObject + " ***"
 
-	elif Event == 'chat_invite_user':
+	elif event == 'chat_invite_user':
 		dataname = module.vk.users.get( user_ids = msg['last_message']['action'].get( 'member_id' ) )
-		Object = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
-		mbody = " *** " + UserName + " пригласил(а) в беседу " + Object + " ***"
+		eObject = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		mbody = " *** " + userName + " пригласил(а) в беседу " + eObject + " ***"
 
-	elif Event == 'chat_kick_user':
+	elif event == 'chat_kick_user':
 		dataname = module.vk.users.get( user_ids = msg['last_message']['action'].get( 'member_id' ) )
-		Object = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
-		mbody = " *** " + UserName + " кикнул(а) из беседы " + Object + " ***"
+		eObject = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+		mbody = " *** " + userName + " кикнул(а) из беседы " + eObject + " ***"
 
-	elif Event == 'chat_photo_update':
-		Object = str( msg['last_message'].get( 'photo_200' ) )
-		mbody = " *** " + UserName + " обновил(а) фото беседы: ***"
+	elif event == 'chat_photo_update':
+		mbody = " *** " + userName + " обновил(а) фото беседы: ***"
 
-	elif Event == 'chat_photo_remove':
-		mbody = " *** " + UserName + " удалил(а) фото беседы! ***"
+	elif event == 'chat_photo_remove':
+		mbody = " *** " + userName + " удалил(а) фото беседы! ***"
 
-	elif Event == 'chat_create':
+	elif event == 'chat_pin_message':
+		eObject = str( msg['last_message']['action'].get( 'message' ) )
+		if( eObject ):
+			mbody = " *** " + userName + " закрепил(а): " + eObject + " ***"
+		else:
+			mbody = " *** " + userName + " закрепил(а) сообщение! ***"
+
+	elif event == 'chat_unpin_message':
+		mbody = " *** " + userName + " открепил(а) сообщение! ***"
+
+	elif event == 'chat_create':
 		print( 'Беседа была создана!' )
 
 	else:
 		return None
 
-	TransferMessagesToTelegram( chatid, None, mbody, None )
+	transferMessagesToTelegram( chatid, None, mbody, None )
 
 # Проверка на наличие перешлённых сообщений
-def GetFwdMessages( msg, idd ):
+def getFwdMessages( msg, idd ):
 
 	if not( msg.get( 'fwd_messages' ) ):
 		return None # И так сойдёт
 
-	FwdList = []
-	FwdMsg = msg.get( 'fwd_messages' )
+	fwdList = []
+	fwdMsg = msg.get( 'fwd_messages' )
 
-	while not FwdMsg is None:
+	while not fwdMsg is None:
 
-		UserName = GetUserName( FwdMsg[0] )
+		userName = getUserName( fwdMsg[0] )
 
-		FwdList.append( { 'body':FwdMsg[0].get( 'text' ), 'UserName':UserName } )
+		fwdList.append( { 'body':fwdMsg[0].get( 'text' ), 'userName':userName } )
 
-		CheckAttachments( FwdMsg[0], idd )
+		checkAttachments( fwdMsg[0], idd )
 
-		FwdMsg = FwdMsg[0].get( 'fwd_messages' )
+		fwdMsg = fwdMsg[0].get( 'fwd_messages' )
 
-	#print( FwdList )
+	#print( fwdList )
 
-	return FwdList
+	return fwdList
 
 #    _____          _ _               _       
 #   |  __ \        | (_)             | |      
@@ -192,30 +206,30 @@ def GetFwdMessages( msg, idd ):
 #                                             
 #  Функции, принимающие и отправляющие сообщения ВК <==> Telegram
 
-def CheckRedirect_vk( msg ):
+def checkRedirect_vk( msg ):
 
 	chatid = str( msg['conversation']['peer']['local_id'] )
 
 	# Проверка на существование переадресации в конфиге
 	if not config.getCell( "vk_" + chatid ) is None:
 
-		ForwardMessage = GetFwdMessages( msg['last_message'], chatid )
+		forwardMessage = getFwdMessages( msg['last_message'], chatid )
 
-		UserName = GetUserName( msg['last_message'] )
+		userName = getUserName( msg['last_message'] )
 		mbody = msg['last_message'].get( 'text' )
 
 		# Чтобы при событии не посылалось пустое сообщение
-		if CheckEvents( msg, chatid ) is None:
-			TransferMessagesToTelegram( chatid, UserName, mbody, ForwardMessage )
+		if checkEvents( msg, chatid ) is None:
+			transferMessagesToTelegram( chatid, userName, mbody, forwardMessage )
 
 		# Проверка на аттачменты, пересланные сообщения, видео...
 		# Проверка сделана, чтобы исключить повтор картинки
-		if ForwardMessage is None:
-			CheckAttachments( msg['last_message'], chatid )
+		if forwardMessage is None:
+			checkAttachments( msg['last_message'], chatid )
 
 		return False
 
-def TransferMessageToVK( chatid, text, fromUser, Attachment ):
+def transferMessageToVK( chatid, text, fromUser, attachment ):
 
 	if ( config.getCell('telegram_SendName') ):
 		time = current_time()
@@ -223,7 +237,7 @@ def TransferMessageToVK( chatid, text, fromUser, Attachment ):
 
 	randid = random.randint(-9223372036854775808, +9223372036854775807) #int64
 
-	if Attachment is None:
+	if attachment is None:
 
 		try:
 			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = text, random_id=randid )
@@ -233,73 +247,74 @@ def TransferMessageToVK( chatid, text, fromUser, Attachment ):
 
 	else:
 
-		GetSticker = db.CheckSticker( Attachment )
+		getSticker = db.checkSticker( attachment )
 
 		# Если стикер не найден в БД
-		if GetSticker is None:
-			StickerURL = 'https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), Attachment )
-			SaveSticker( StickerURL, Attachment )
-			GetSticker = db.CheckSticker( Attachment )
+		if getSticker is None:
+			stickerURL = 'https://api.telegram.org/file/bot{0}/{1}'.format( config.getCell( 'telegram_token' ), attachment )
+			saveSticker( stickerURL, attachment )
+			getSticker = db.checkSticker( attachment )
 
-		#print( GetSticker )
+		#print( getSticker )
 
 		try:
-			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker, random_id=randid )
+			module.vk.messages.send( chat_id = config.getCell( 't_' + chatid ), message = "", attachment = getSticker, random_id=randid )
 		except vk_api.ApiError as error_msg:
-			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = "", attachment = GetSticker, random_id=randid )
+			module.vk.messages.send( user_id = config.getCell( 't_' + chatid ), message = "", attachment = getSticker, random_id=randid )
 
 	return False
 
-def CheckRedirect_telegram( chatid, text, fromUser, Attachment ):
+def checkRedirect_telegram( chatid, text, fromUser, attachment ):
 	if not config.getCell( 't_' + chatid ) is None:
-		TransferMessageToVK( chatid, text, fromUser, Attachment )
+		transferMessageToVK( chatid, text, fromUser, attachment )
 		return False
 
 # Посылаем простые сообщения в Telegram
 # Идея: сделать в будущем наклонные столбики, теперь главное не забыть
-def TransferMessagesToTelegram( idd, UserName, mbody, FwdList ):
+def transferMessagesToTelegram( idd, userName, mbody, fwdList ):
 
 	# Условие выполняется в случае какого-либо события
-	if UserName is None:
-		module.bot.send_message( config.getCell( 'vk_' + idd ), str( mbody ) )
+	if userName is None:
+		if mbody:
+			module.bot.send_message( config.getCell( 'vk_' + idd ), str( mbody ) )
 		return False
 
 	time = current_time()
-	NiceText = str( time + ' | ' + UserName + ': ' + mbody )
+	niceText = str( time + ' | ' + userName + ': ' + mbody )
 
-	if not FwdList is None:
+	if not fwdList is None:
 
-		ForwardText = ''
+		forwardText = ''
 
-		for f in FwdList[0:]:
-			ForwardText = ForwardText + str( ' | ' + f.get( 'UserName' ) + ':' + ' ' + f.get( 'body' ) + ' \n\n' )
+		for f in fwdList[0:]:
+			forwardText = forwardText + str( ' | ' + f.get( 'userName' ) + ':' + ' ' + f.get( 'body' ) + ' \n\n' )
 
-		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText + '\n\n' + ForwardText )
+		module.bot.send_message( config.getCell( 'vk_' + idd ), niceText + '\n\n' + forwardText )
 
 	else:
-		module.bot.send_message( config.getCell( 'vk_' + idd ), NiceText )
+		module.bot.send_message( config.getCell( 'vk_' + idd ), niceText )
 
 # Посылаем аттачменты в Telegram
-def TransferAttachmentsToTelegram ( idd, attachments ):
+def transferAttachmentsToTelegram ( idd, attachments ):
 
 	for j in attachments[0:]:
 
-		AttType = j.get( 'type' )
-		Link = j.get( 'link' )
+		attType = j.get( 'type' )
+		link = j.get( 'link' )
 
-		if AttType == 'photo' or AttType == 'sticker':
-			module.bot.send_photo( config.getCell( 'vk_' + idd ), Link )
+		if attType == 'photo' or attType == 'sticker':
+			module.bot.send_photo( config.getCell( 'vk_' + idd ), link )
 
-		elif AttType == 'doc' or AttType == 'gif' or AttType == 'audio':
-			module.bot.send_document( config.getCell( 'vk_' + idd ), Link )
+		elif attType == 'doc' or attType == 'gif' or attType == 'audio_message':
+			module.bot.send_document( config.getCell( 'vk_' + idd ), link )
 
-		elif AttType == 'file':
-			module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+		elif attType == 'other':
+			module.bot.send_message( config.getCell( 'vk_' + idd ), link )
 
-		elif AttType == 'video':
+		elif attType == 'video':
 
 			# Потому что в ВК не может отправить полную ссылку на файл видео -_-
-			module.bot.send_message( config.getCell( 'vk_' + idd ), Link )
+			module.bot.send_message( config.getCell( 'vk_' + idd ), link )
 
 		else:
 			module.bot.send_message( config.getCell( 'vk_' + idd ), '( Неизвестный тип аттачмента )' )
@@ -364,7 +379,7 @@ def input_vk():
 			msg = rawMessages['conversation']['peer']
 			module.vk.messages.markAsRead( messages_ids = msg['local_id'], peer_id = msg['id'] )
 
-			CheckRedirect_vk( rawMessages )
+			checkRedirect_vk( rawMessages )
 
 		# Чтобы не вылетало, а работало дальше
 		except BaseException:
@@ -392,16 +407,16 @@ def listener( messages ):
 				module.bot.send_message( m.chat.id, str( m.chat.id ) )
 				continue
 
-			CheckRedirect_telegram( str( m.chat.id ), str( m.text ), GetUserTName(m.from_user), None )
+			checkRedirect_telegram( str( m.chat.id ), str( m.text ), getUserTName(m.from_user), None )
 
 		elif m.content_type == 'sticker':
 
 			if not ( config.getCell('vk_EnableStickers') ):
 				return False
 
-			FilePath = module.bot.get_file( m.sticker.file_id ).file_path
+			filePath = module.bot.get_file( m.sticker.file_id ).file_path
 
-			CheckRedirect_telegram( str( m.chat.id ), str( m.text ), GetUserTName(m.from_user), str( FilePath ) )
+			checkRedirect_telegram( str( m.chat.id ), str( m.text ), getUserTName(m.from_user), str( filePath ) )
 
 
 def init_telegram():
@@ -413,12 +428,12 @@ def init_telegram():
 def input_telegram():
 
 	if ( config.getCell('telegram_useProxy') ):
-		Proxy_type = str( config.getCell('p_type') )
-		Proxy_UserInfo = str( config.getCell('p_user') + ':' + config.getCell('p_password') )
-		Proxy_Data = str( config.getCell('p_host') + ':' + config.getCell('p_port') )
+		proxyType = str( config.getCell('p_type') )
+		proxyUserInfo = str( config.getCell('p_user') + ':' + config.getCell('p_password') )
+		proxyData = str( config.getCell('p_host') + ':' + config.getCell('p_port') )
 		telebot.apihelper.proxy = { 
-		'http': '%s://%s@%s' % ( Proxy_type, Proxy_UserInfo, Proxy_Data ),
-		'https': '%s://%s@%s' % ( Proxy_type, Proxy_UserInfo, Proxy_Data )
+		'http': '%s://%s@%s' % ( proxyType, proxyUserInfo, proxyData ),
+		'https': '%s://%s@%s' % ( proxyType, proxyUserInfo, proxyData )
 		}
 
 	module.bot.set_update_listener( listener )
@@ -453,54 +468,54 @@ def checknewfriends():
 #                                        
 
 # Загрузка стикеров в ВК
-def AddStickerIntoVK( path, Sticker ):
+def addStickerIntoVK( path, sticker ):
 
-	StickerList = []
-	OurFile = path + Sticker
+	stickerList = []
+	ourFile = path + sticker
 
 	upload = vk_api.VkUpload( vk_session )
-	photo = upload.photo( OurFile + ".png", album_id = config.getCell( 'vk_album_id' ) )
+	photo = upload.photo( ourFile + ".png", album_id = config.getCell( 'vk_album_id' ) )
 
 	if ( config.getCell('vk_detelestickers') ):
-		os.remove( OurFile + ".png" )
+		os.remove( ourFile + ".png" )
 
-	OurVK = 'photo{}_{}'.format( photo[0]['owner_id'], photo[0]['id'] )
+	ourVK = 'photo{}_{}'.format( photo[0]['owner_id'], photo[0]['id'] )
 
-	StickerList.append( { 'sticker_t':OurFile,
-						  'sticker_vk':OurVK } )
+	stickerList.append( { 'sticker_t':ourFile,
+						  'sticker_vk':ourVK } )
 
-	return StickerList
+	return stickerList
 
-def SaveSticker( StickerURL, Attachment ):
+def saveSticker( stickerURL, attachment ):
 
-	Attachment = Attachment.split('/')
+	attachment = attachment.split('/')
 
-	content = ur.urlopen( StickerURL ).read()
+	content = ur.urlopen( stickerURL ).read()
 
-	path = Attachment[0] + '/'
+	path = attachment[0] + '/'
 	if not os.path.exists( path ):
 		os.makedirs( path )
 
 	# Перекодирование из webp в png
 
-	ImageWebp = path + Attachment[1]
+	imageWebp = path + attachment[1]
 
-	out = open( ImageWebp, 'wb' )
+	out = open( imageWebp, 'wb' )
 	out.write( content )
 	out.close()
 
-	img = Image.open(ImageWebp)
+	img = Image.open(imageWebp)
 
 	if ( config.getCell('vk_sticker_EnableScale') ):
 		scale = config.getCell( 'vk_sticker_size' )
 		img.thumbnail((scale, scale))
-	img.save( ImageWebp + ".png", "PNG")
-	os.remove( ImageWebp )
+	img.save( imageWebp + ".png", "PNG")
+	os.remove( imageWebp )
 
 	#print( 'Sticker saved!' )
 
-	Stickers = AddStickerIntoVK( path, Attachment[1] )
-	db.AddStickerIntoDb( Stickers )
+	stickers = addStickerIntoVK( path, attachment[1] )
+	db.addStickerIntoDb( stickers )
 
 # Разработчикам на заметку:
 # Telegram та ещё поехавшая вещь, иногда аттачменты идут с расширением файла, иногда - без него
