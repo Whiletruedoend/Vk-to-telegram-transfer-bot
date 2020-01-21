@@ -38,9 +38,13 @@ def current_time():
 
 # Получение имени пользователя
 def getUserName( msg ):
-	dataname = module.vk.users.get( user_ids = msg.get('from_id') )
-	userName = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
-	return userName
+	# Для приёма личных сообщений когда пишут через группу
+	if ( int( msg.get('from_id') ) < 0 ):
+		return None
+	else:
+		dataname = module.vk.users.get( user_ids = msg.get('from_id') )
+		name = str ( dataname[0]['first_name'] + ' ' + dataname[0]['last_name'] )
+	return name
 
 def getUserTName( msg ):
 	if msg.last_name is None:
