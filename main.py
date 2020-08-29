@@ -231,7 +231,10 @@ def checkRedirect_vk( msg ):
 		if forwardMessage is None:
 			checkAttachments( msg['last_message'], chatid )
 
-		return False
+		return True
+	return False
+
+
 
 def transferMessageToVK( chatid, text, fromUser, attachment ):
 
@@ -381,9 +384,9 @@ def input_vk():
 
 			rawMessages = module.vk.messages.getConversations( filter='unread', count=config.getCell('vk_msgForPick') )['items'][0]
 			msg = rawMessages['conversation']['peer']
-			module.vk.messages.markAsRead( messages_ids = msg['local_id'], peer_id = msg['id'] )
+			if checkRedirect_vk( rawMessages ) or config.getCell('vk_markAsReadEverything'):
+				module.vk.messages.markAsRead( messages_ids = msg['local_id'], peer_id = msg['id'] )
 
-			checkRedirect_vk( rawMessages )
 
 		# Чтобы не вылетало, а работало дальше
 		except BaseException:

@@ -22,7 +22,7 @@ def initConfig():
 	setCell( "vk_msgForPick", 1 ) # Сколько сообщений за раз обрабатывать? Просто не трогай...
 
 	setCell( "vk_AddFriends", False ) # Автоматически добавлять новых пользователей в друзья?
-
+	setCell( "vk_markAsReadEverything", False) # Помечать прочитанными все сообщения?
 	setCell( "vk_login", "78005553535" ) # Логин от аккаунта ВК
 	setCell( "vk_password", "Password" ) # Пароль от аккаунта ВК
 
