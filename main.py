@@ -116,6 +116,10 @@ def getAttachments( msg ):
 
 			attachments = module.vk.video.get(videos = fullURL )['items'][0].get('player')
 
+		elif attType == 'graffiti':
+			attType = 'other'
+			attachments = att.get('graffiti').get('url')
+			
 		# Неизвестный тип?
 		else:
 
