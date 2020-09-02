@@ -116,12 +116,42 @@ def getAttachments( msg ):
 
 			attachments = module.vk.video.get(videos = fullURL )['items'][0].get('player')
 
+		elif attType == 'graffiti':
+			attType = 'other'
+			attachments = attachment.get('url')
+			
+		elif attType == 'link':
+			attType = 'other'
+			attachments = attachment.get('url')
+
+		elif attType == 'wall':
+			attType = 'other'
+			attachments = 'https://vk.com/wall'
+			from_id = str(attachment.get('from_id'))
+			post_id = str(attachment.get('id'))
+			attachments += from_id + '_' + post_id
+
+		elif attType == 'wall_reply':
+			attType = 'other'
+			attachments = 'https://vk.com/wall'
+			owner_id = str(attachment.get('owner_id'))
+			reply_id = str(attachment.get('id'))
+			post_id = str(attachment.get('post_id'))
+			attachments += owner_id + '_' + post_id 
+			attachments += '?reply=' + reply_id
+			
+		elif attType == 'poll':
+			attType = 'other'
+			attachments = 'https://vk.com/poll'
+			owner_id = str(attachment.get('owner_id'))
+			poll_id = str(attachment.get('id'))
+			attachments += owner_id + '_' + poll_id
 		# Неизвестный тип?
 		else:
 
 			attachments = None
 
-		attachList.append( { 	'type':attType,
+		attachList.append( {    'type':attType,
 								'link':attachments } )
 
 	#print( attachList )
@@ -390,7 +420,7 @@ def input_vk():
 
 		# Чтобы не вылетало, а работало дальше
 		except BaseException:
-		#	print( 'Что-то пошло не так...' )
+		#   print( 'Что-то пошло не так...' )
 			continue
 
 
