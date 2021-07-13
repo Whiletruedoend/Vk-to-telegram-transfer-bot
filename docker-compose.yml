@@ -1,0 +1,7 @@
+version: "3.9"
+
+services:
+  bot:
+    build: .
+    volumes:
+      - ./config.py:/usr/src/app/config.py
