@@ -412,15 +412,19 @@ def input_vk():
 			if ( config.getCell('vk_AddFriends') ):
 				checknewfriends()
 
-			rawMessages = module.vk.messages.getConversations( filter='unread', count=config.getCell('vk_msgForPick') )['items'][0]
-			msg = rawMessages['conversation']['peer']
-			if checkRedirect_vk( rawMessages ) or config.getCell('vk_markAsReadEverything'):
+			rawMessages = module.vk.messages.getConversations( filter='unread', count=config.getCell('vk_msgForPick') )['items']
+			if not rawMessages:
+				continue
+			
+			msg = rawMessages[0]['conversation']['peer']
+			if checkRedirect_vk( rawMessages[0] ) or config.getCell('vk_markAsReadEverything'):
 				module.vk.messages.markAsRead( messages_ids = msg['local_id'], peer_id = msg['id'] )
 
 
 		# Чтобы не вылетало, а работало дальше
-		except BaseException:
-		#   print( 'Что-то пошло не так...' )
+		except BaseException as e:
+			print(e)
+			print( 'Что-то пошло не так...' )
 			continue
 
 
