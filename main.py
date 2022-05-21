@@ -389,8 +389,8 @@ def init_vk():
 
 	global vk_session
 
-	vk_session = vk_api.VkApi( login, password, app_id=app, auth_handler=auth_handler, captcha_handler=captcha_handler )
-
+	vk_session = vk_api.VkApi( token ="ВашТокен", auth_handler=auth_handler, captcha_handler=captcha_handler )
+	##Токен получаем тут: https://oauth.vk.com/oauth/authorize?client_id=6121396&scope=65540&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1&slogin_h=bb8b87cb8445413e88.ff716286cf4a96b99b&__q_hash=bad77743e35cc378cc32e42b66c126f2
 	try:
 		vk_session.auth()
 	except vk_api.AuthError as error_msg:
